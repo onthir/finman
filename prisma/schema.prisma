@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth (NextAuth / Auth.js v5) ──────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts      Account[]
+  sessions      Session[]
+  plaidItems    PlaidItem[]
+  finAccounts   FinAccount[]
+  transactions  Transaction[]
+  holdings      Holding[]
+  liabilities   Liability[]
+  categoryRules CategoryRule[]
+  insights      Insight[]
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Plaid integration ─────────────────────────────────────────────────────
+
+// One row per institution a user has connected (e.g., Chase, Amex).
+model PlaidItem {
+  id                String    @id @default(cuid())
+  userId            String
+  plaidItemId       String    @unique
+  institutionId     String
+  institutionName   String
+  accessTokenCipher String    @db.Text
+  cursor            String?
+  status            String    @default("active")
+  lastSyncedAt      DateTime?
+  lastWebhookAt     DateTime?
+  consentExpiresAt  DateTime?
+  errorCode         String?
+  errorMessage      String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finAccounts FinAccount[]
+
+  @@index([userId])
+}
+
+// A specific account inside an institution (a card, checking acct, savings, brokerage).
+model FinAccount {
+  id               String   @id @default(cuid())
+  userId           String
+  plaidItemId      String
+  plaidAccountId   String   @unique
+  name             String
+  officialName     String?
+  mask             String?
+  type             String
+  subtype          String?
+  currentBalance   Decimal? @db.Decimal(14, 2)
+  availableBalance Decimal? @db.Decimal(14, 2)
+  isoCurrencyCode  String?  @default("USD")
+  hidden           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plaidItem    PlaidItem     @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  holdings     Holding[]
+  liability    Liability?
+
+  @@index([userId])
+  @@index([plaidItemId])
+}
+
+model Transaction {
+  id                 String    @id @default(cuid())
+  userId             String
+  finAccountId       String
+  plaidTransactionId String    @unique
+  amount             Decimal   @db.Decimal(14, 2)
+  isoCurrencyCode    String?   @default("USD")
+  date               DateTime  @db.Date
+  authorizedDate     DateTime? @db.Date
+  name               String
+  merchantName       String?
+  pending            Boolean   @default(false)
+  paymentChannel     String?
+  pfcPrimary         String?
+  pfcDetailed        String?
+  pfcConfidence      String?
+  category           String?
+  categorySource     String?
+  notes              String?   @db.Text
+  tags               String[]  @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finAccount FinAccount @relation(fields: [finAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date(sort: Desc)])
+  @@index([finAccountId, date(sort: Desc)])
+  @@index([category])
+}
+
+model Holding {
+  id               String    @id @default(cuid())
+  userId           String
+  finAccountId     String
+  plaidSecurityId  String
+  tickerSymbol     String?
+  name             String?
+  quantity         Decimal   @db.Decimal(20, 8)
+  costBasis        Decimal?  @db.Decimal(14, 2)
+  institutionPrice Decimal?  @db.Decimal(14, 4)
+  institutionValue Decimal?  @db.Decimal(14, 2)
+  isoCurrencyCode  String?   @default("USD")
+  asOf             DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finAccount FinAccount @relation(fields: [finAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([finAccountId, plaidSecurityId])
+}
+
+// Credit-card statement info from Plaid /liabilities/get
+model Liability {
+  id                     String    @id @default(cuid())
+  userId                 String
+  finAccountId           String    @unique
+  lastStatementBalance   Decimal?  @db.Decimal(14, 2)
+  lastStatementIssueDate DateTime? @db.Date
+  minimumPaymentAmount   Decimal?  @db.Decimal(14, 2)
+  nextPaymentDueDate     DateTime? @db.Date
+  lastPaymentAmount      Decimal?  @db.Decimal(14, 2)
+  lastPaymentDate        DateTime? @db.Date
+  aprPercent             Decimal?  @db.Decimal(6, 3)
+  isOverdue              Boolean   @default(false)
+  updatedAt              DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finAccount FinAccount @relation(fields: [finAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId, nextPaymentDueDate])
+}
+
+model CategoryRule {
+  id           String   @id @default(cuid())
+  userId       String
+  matchPattern String
+  category     String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Insight {
+  id          String   @id @default(cuid())
+  userId      String
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  kind        String
+  title       String
+  body        String   @db.Text
+  data        Json?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  dedupeKey String   @unique
+  payload   Json
+  sentAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt(sort: Desc)])
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --skip-install)",
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --skip-install --name finman)",
+      "Bash(npx --yes create-next-app@latest finman-app --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --skip-install)",
+      "Bash(shopt -s dotglob)",
+      "Bash(mv finman-app/* .)",
+      "Bash(mv finman-app/.* .)",
+      "Bash(rmdir finman-app *)",
+      "Bash(npm install *)"
+    ]
+  }
+}
