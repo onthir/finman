@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { inngest } from "@/lib/inngest";
-
-// NOTE: in production, verify the Plaid-Verification JWT header against the
-// /webhook_verification_key/get endpoint. Skipped here for the foundation —
-// implement before connecting any real accounts that have webhooks set.
-// Docs: https://plaid.com/docs/api/webhooks/webhook-verification/
+import { verifyPlaidWebhook } from "@/lib/plaid-webhook";
 
 interface PlaidWebhookBody {
   webhook_type: string;
@@ -15,9 +11,21 @@ interface PlaidWebhookBody {
 }
 
 export async function POST(req: Request) {
+  // Read the body as text first — verification requires the EXACT raw bytes.
+  const rawBody = await req.text();
+
+  const verification = await verifyPlaidWebhook(req, rawBody);
+  if (!verification.ok) {
+    console.warn("[plaid webhook] rejected:", verification.reason);
+    return NextResponse.json(
+      { error: "unauthorized" },
+      { status: 401 },
+    );
+  }
+
   let body: PlaidWebhookBody;
   try {
-    body = (await req.json()) as PlaidWebhookBody;
+    body = JSON.parse(rawBody) as PlaidWebhookBody;
   } catch {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
@@ -39,7 +47,6 @@ export async function POST(req: Request) {
 
   switch (body.webhook_type) {
     case "TRANSACTIONS":
-      // SYNC_UPDATES_AVAILABLE, DEFAULT_UPDATE, INITIAL_UPDATE, HISTORICAL_UPDATE, etc.
       events.push({
         name: "plaid/sync.transactions",
         data: { plaidItemDbId: item.id },

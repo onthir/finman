@@ -27,6 +27,7 @@ model User {
   categoryRules CategoryRule[]
   insights      Insight[]
   notifications Notification[]
+  budgets       Budget[]
 }
 
 model Account {
@@ -138,16 +139,19 @@ model Transaction {
   categorySource     String?
   notes              String?   @db.Text
   tags               String[]  @default([])
+  budgetCategoryId   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  finAccount FinAccount @relation(fields: [finAccountId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finAccount     FinAccount      @relation(fields: [finAccountId], references: [id], onDelete: Cascade)
+  budgetCategory BudgetCategory? @relation(fields: [budgetCategoryId], references: [id], onDelete: SetNull)
 
   @@index([userId, date(sort: Desc)])
   @@index([finAccountId, date(sort: Desc)])
   @@index([category])
+  @@index([budgetCategoryId])
 }
 
 model Holding {
@@ -218,6 +222,34 @@ model Insight {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
+}
+
+model Budget {
+  id         String          @id @default(cuid())
+  userId     String
+  month      DateTime        @db.Date
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+
+  @@unique([userId, month])
+  @@index([userId])
+}
+
+model BudgetCategory {
+  id        String      @id @default(cuid())
+  budgetId  String
+  name      String
+  amount    Decimal     @db.Decimal(14, 2)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  budget       Budget        @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([budgetId])
 }
 
 model Notification {

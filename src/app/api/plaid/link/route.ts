@@ -13,7 +13,8 @@ export async function POST() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const webhookUrl = process.env.PLAID_WEBHOOK_URL;
+  const webhookUrl = process.env.PLAID_WEBHOOK_URL || undefined;
+  const redirectUri = oauthRedirectUri();
 
   const res = await plaid.linkTokenCreate({
     user: { client_user_id: session.user.id },
@@ -23,7 +24,16 @@ export async function POST() {
     country_codes: PLAID_COUNTRY_CODES,
     language: "en",
     webhook: webhookUrl,
+    redirect_uri: redirectUri,
   });
 
   return NextResponse.json({ link_token: res.data.link_token });
+}
+
+function oauthRedirectUri(): string | undefined {
+  const explicit = process.env.PLAID_REDIRECT_URI;
+  if (explicit) return explicit;
+  const base = process.env.AUTH_URL;
+  if (!base) return undefined;
+  return `${base.replace(/\/$/, "")}/oauth-callback`;
 }

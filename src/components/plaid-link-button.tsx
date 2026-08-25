@@ -5,6 +5,8 @@ import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link"
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 
+const LINK_TOKEN_KEY = "finman:plaid_link_token";
+
 export function PlaidLinkButton({ className }: { className?: string }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,14 @@ export function PlaidLinkButton({ className }: { className?: string }) {
       const res = await fetch("/api/plaid/link", { method: "POST" });
       if (!res.ok) return;
       const { link_token } = (await res.json()) as { link_token: string };
-      if (!cancelled) setToken(link_token);
+      if (cancelled) return;
+      setToken(link_token);
+      // Persist for the OAuth round-trip (Chase, etc.).
+      try {
+        sessionStorage.setItem(LINK_TOKEN_KEY, link_token);
+      } catch {
+        /* ignore */
+      }
     })();
     return () => {
       cancelled = true;
@@ -26,6 +35,11 @@ export function PlaidLinkButton({ className }: { className?: string }) {
   const onSuccess = useCallback(
     async (public_token: string, metadata: PlaidLinkOnSuccessMetadata) => {
       setLoading(true);
+      try {
+        sessionStorage.removeItem(LINK_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
       await fetch("/api/plaid/exchange", {
         method: "POST",
         headers: { "content-type": "application/json" },
