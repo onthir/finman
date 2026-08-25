@@ -143,5 +143,5 @@ must keep every value empty. Real secrets in play: `DATABASE_URL`, `ENCRYPTION_K
 `AUTH_SECRET`, `RESEND_API_KEY`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `ANTHROPIC_API_KEY`,
 `INNGEST_*`.
 
-`ngrok.exe` (31MB) sits in the repo root for Plaid webhook tunnelling and must stay
-untracked.
+Plaid webhook tunnelling in dev uses `cloudflared tunnel --url http://localhost:3000`. Any
+tunnel binary kept in the repo root stays untracked — `*.exe` is gitignored for this reason.
