@@ -65,19 +65,27 @@ npm run inngest:dev        # http://localhost:8288
 
 ### Webhooks in local dev
 
-Plaid needs to hit `/api/plaid/webhook` from the public internet. Use ngrok:
+Plaid needs to hit `/api/plaid/webhook` from the public internet. Use a Cloudflare quick tunnel:
 
 ```bash
-ngrok http 3000
+cloudflared tunnel --url http://localhost:3000
 # Set in .env.local:
-#   PLAID_WEBHOOK_URL=https://<id>.ngrok-free.app/api/plaid/webhook
+#   PLAID_WEBHOOK_URL=https://<random>.trycloudflare.com/api/plaid/webhook
 ```
+
+Install it once with `winget install --id Cloudflare.cloudflared`. Quick tunnels need no
+Cloudflare account, but the hostname changes on every restart — update `PLAID_WEBHOOK_URL`
+and the Plaid dashboard whenever you restart the tunnel. For a stable hostname, use a named
+tunnel against a domain you control.
 
 Webhooks are non-fatal — if `PLAID_WEBHOOK_URL` is empty, Link still works, you just have to trigger syncs manually until a webhook is configured.
 
-### Inngest signature verification
+### Webhook signature verification
 
-The webhook receiver does **not** yet verify the `Plaid-Verification` JWT header. Implement this before connecting any real (non-sandbox) account that has webhooks enabled. See: https://plaid.com/docs/api/webhooks/webhook-verification/
+The webhook receiver verifies the `Plaid-Verification` JWT header in `src/lib/plaid-webhook.ts`,
+fetching Plaid's ES256 signing key by `kid`, rejecting stale `iat` values to blunt replay, and
+constant-time comparing the `request_body_sha256` claim against the raw body. Unverified requests
+are rejected before any handler runs. See: https://plaid.com/docs/api/webhooks/webhook-verification/
 
 ## Project layout
 

@@ -43,5 +43,5 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# local tooling binaries (ngrok for Plaid webhook tunnelling)
+# local tooling binaries (cloudflared for Plaid webhook tunnelling)
 *.exe
