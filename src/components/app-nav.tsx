@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/lib/auth";
-import { LayoutDashboard, Wallet, Receipt, Sparkles } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, Sparkles, PiggyBank } from "lucide-react";
 
 export function AppNav({ email }: { email?: string | null }) {
   return (
@@ -27,6 +27,9 @@ export function AppNav({ email }: { email?: string | null }) {
           </NavLink>
           <NavLink href="/insights" icon={<Sparkles className="h-4 w-4" />}>
             Insights
+          </NavLink>
+          <NavLink href="/budget" icon={<PiggyBank className="h-4 w-4" />}>
+            Budget
           </NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">

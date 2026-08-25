@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { format } from "date-fns";
 import { Wallet, CreditCard, PiggyBank, LineChart } from "lucide-react";
+import { UnlinkButton } from "@/components/unlink-button";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,7 @@ export default async function AccountsPage() {
                       : " · not synced yet"}
                   </div>
                 </div>
+                <UnlinkButton itemId={item.id} institutionName={item.institutionName} />
               </div>
               <ul className="divide-y divide-stone-100">
                 {item.finAccounts.map((a) => {
